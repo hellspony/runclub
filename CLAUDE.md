@@ -21,20 +21,6 @@ make docker-down        # Stop container
 
 After code changes, always run `make lint && make test`. After frontend changes, run `cd web/admin && npm run build`.
 
-## Linter Rules — CRITICAL
-
-The project uses a strict `.golangci.yml` with 60+ linters. Key rules:
-
-- **NEVER disable linters** with `//nolint` unless you've exhausted alternatives and can explain why. If you can't fix a lint error, ask the user instead of suppressing it.
-- `nolintlint` requires every `//nolint` to specify the linter name AND an explanation. Only `funlen`, `gocognit`, `golines` may omit explanation.
-- **Complexity limits**: `cyclop` max 30, `gocognit` min 20, `funlen` max 120 lines / 60 statements. If a function exceeds these, refactor it — don't suppress.
-- **Magic numbers** (`mnd`): use named constants instead of bare numbers. Telegram handler files are excluded from `mnd`.
-- **Comments on exported symbols** must start with the symbol name: `// Member represents...` not `// This is a member...`
-- **No `log` package** outside `main.go` — use `log/slog` or `go.uber.org/zap`.
-- **No `math/rand`** — use `math/rand/v2`.
-- **Line length** max 120 chars (enforced by `golines`).
-- **Imports** sorted with `goimports` (local prefix: `runclub`).
-
 ## Architecture
 
 Clean architecture with strict layering:
@@ -75,65 +61,14 @@ internal/
 6. HTTP handler in `internal/delivery/http/`
 7. Register handler in `server.go`, wire in `cmd/server/wire.go`
 
-## Go Code Style (Uber Style Guide)
+## Topic-Specific Conventions
 
-- **Error messages**: lowercase, no trailing punctuation: `fmt.Errorf("create member: %w", err)`
-- **Variable naming**: short names for narrow scope (`r` for reader, `i` for loop), descriptive for wide scope
-- **Interface satisfaction**: `var _ Foo = (*Bar)(nil)` for compile-time check
-- **Return errors, don't panic**: only `main` may `log.Fatal`
-- **No `init()`**: use explicit initialization
-- **Table-driven tests**: prefer `t.Run` subtests with struct slices
-- **Pointer vs value**: use pointer when modifying or when struct contains `time.Time` with zero-value semantics
-- **Group `var`/`const` blocks**: related constants together, separate `iota` blocks
-- **Wrap errors**: always `%w` with `fmt.Errorf` when adding context
-
-## Testing
-
-- **testify** (`assert` + `require`) for assertions, **gomock** (`go.uber.org/mock`) for generated mocks.
-- **Repository tests** (`internal/repository/sqlite/*_test.go`): real SQLite in `t.TempDir()` via `setupTestDB`. No mocks needed.
-- **Use case tests** (`internal/usecase/*_test.go`): generated gomock mocks from `internal/mocks/`. Use `gomock.NewController(t)` + `defer ctrl.Finish()`.
-- **testifylint** is enabled — use `require.Error(t, err)` (not `assert.Error`) when the test must stop on failure.
-- Run with `make test` (enables `-race` flag).
-
-### Mock Generation
-
-- Mocks are generated from repository interfaces via `mockgen` (`make generate`).
-- `go:generate` directives live in `internal/domain/repository/generate.go`.
-- Generated files are committed to `internal/mocks/`.
-- After adding a new repository interface method: run `make generate` to update mocks.
-
-## Database (SQLite)
-
-- Single connection (`SetMaxOpenConns(1)`), WAL mode.
-- Migrations are embedded in the binary (`internal/repository/sqlite/migrations/`), run on startup.
-- **Migration naming**: `NNN_descriptive_name.sql` (sequential number).
-- SQLite doesn't support `ALTER TABLE DROP CONSTRAINT` — recreate table + copy data for schema changes.
-- Partial unique index pattern for nullable-like columns: `CREATE UNIQUE INDEX ... WHERE column != 0`
-
-## HTTP API Conventions
-
-- All API routes under `/api/v1/`.
-- Protected routes use `AuthMiddleware`; superadmin routes add `SuperAdminMiddleware`.
-- Request/response types defined in handler files as unexported structs.
-- JSON field names use `snake_case` (matching Go struct tags).
-- Error responses: `{"error": "message"}`.
-- Club-scoped sub-resources: `/clubs/:clubId/members`, `/clubs/:clubId/races`, etc.
-
-## Frontend (web/admin/)
-
-- Vue 3 + TypeScript + Vite + Pinia + Vue Router.
-- API client in `src/api/` — one file per resource.
-- Views in `src/views/` — one file per page.
-- **Field names must match backend JSON tags** (`snake_case`): `telegram_username`, not `username`.
-- Vite dev server proxies `/api` to `localhost:8080`.
-- Build: `vue-tsc --noEmit && vite build` (type-check then bundle).
-
-## Telegram Bot
-
-- Handlers in `internal/delivery/telegram/handlers/`.
-- FSM (finite state machine) for multi-step flows stored in `bot_states` table.
-- Callback data encoded as `action:payload` pairs.
-- MarkdownV2 escaping via `internal/pkg/tgrescape`.
+- **[Linting](docs/linting.md)** — linter rules, suppression policy
+- **[Testing](docs/testing.md)** — testify, gomock, mock generation
+- **[Database](docs/database.md)** — SQLite, migrations, patterns
+- **[HTTP API](docs/http-api.md)** — routing, auth, response format
+- **[Frontend](docs/frontend.md)** — Vue 3, field naming, build
+- **[Telegram Bot](docs/telegram.md)** — FSM, callbacks, escaping
 
 ## Common Pitfalls
 
