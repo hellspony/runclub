@@ -2,235 +2,194 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	go_mock "go.uber.org/mock/gomock"
 
 	"runclub/internal/domain/entity"
-	"runclub/internal/domain/repository"
+	"runclub/internal/mocks"
 	"runclub/internal/usecase"
 )
 
-// --- mocks ---
-
-type mockMemberRepo struct {
-	members map[int64]*entity.Member
-	nextID  int64
-}
-
-func newMockMemberRepo() *mockMemberRepo {
-	return &mockMemberRepo{
-		members: make(map[int64]*entity.Member),
-		nextID:  1,
-	}
-}
-
-func (m *mockMemberRepo) Create(_ context.Context, member *entity.Member) (int64, error) {
-	member.ID = m.nextID
-	m.members[member.ID] = member
-	m.nextID++
-	return member.ID, nil
-}
-
-func (m *mockMemberRepo) GetByID(_ context.Context, id int64) (*entity.Member, error) {
-	member, ok := m.members[id]
-	if !ok {
-		return nil, ErrNotFound
-	}
-	return member, nil
-}
-
-func (m *mockMemberRepo) GetByTelegramID(_ context.Context, tid int64) (*entity.Member, error) {
-	for _, m := range m.members {
-		if m.TelegramID == tid {
-			return m, nil
-		}
-	}
-	return nil, ErrNotFound
-}
-
-func (m *mockMemberRepo) ListByClub(_ context.Context, _ int64) ([]entity.Member, error) {
-	return nil, nil
-}
-
-func (m *mockMemberRepo) ListTrainersByClub(_ context.Context, _ int64) ([]entity.Member, error) {
-	return nil, nil
-}
-
-func (m *mockMemberRepo) ListBirthdayOn(_ context.Context, _, _ int) ([]entity.Member, error) {
-	return nil, nil
-}
-
-func (m *mockMemberRepo) ListOrphansOlderThan(_ context.Context, _ int) ([]entity.Member, error) {
-	return nil, nil
-}
-
-func (m *mockMemberRepo) Update(_ context.Context, member *entity.Member) error {
-	if _, ok := m.members[member.ID]; !ok {
-		return ErrNotFound
-	}
-	m.members[member.ID] = member
-	return nil
-}
-
-func (m *mockMemberRepo) Delete(_ context.Context, id int64) error {
-	delete(m.members, id)
-	return nil
-}
-
-var _ repository.MemberRepository = (*mockMemberRepo)(nil)
-
-type mockClubMemberRepo struct {
-	records map[clubMemberKey]*entity.ClubMember
-	nextID  int64
-}
-
-type clubMemberKey struct {
-	ClubID, MemberID int64
-}
-
-func newMockClubMemberRepo() *mockClubMemberRepo {
-	return &mockClubMemberRepo{
-		records: make(map[clubMemberKey]*entity.ClubMember),
-		nextID:  1,
-	}
-}
-
-func (m *mockClubMemberRepo) Create(_ context.Context, cm *entity.ClubMember) (int64, error) {
-	key := clubMemberKey{cm.ClubID, cm.MemberID}
-	cm.ID = m.nextID
-	m.records[key] = cm
-	m.nextID++
-	return cm.ID, nil
-}
-
-func (m *mockClubMemberRepo) GetByClubAndMember(_ context.Context, clubID, memberID int64) (*entity.ClubMember, error) {
-	cm, ok := m.records[clubMemberKey{clubID, memberID}]
-	if !ok {
-		return nil, ErrNotFound
-	}
-	return cm, nil
-}
-
-func (m *mockClubMemberRepo) ListClubsByMember(_ context.Context, _ int64) ([]entity.ClubMember, error) {
-	return nil, nil
-}
-
-func (m *mockClubMemberRepo) ListTrainerClubs(_ context.Context, _ int64) ([]entity.ClubMember, error) {
-	return nil, nil
-}
-
-func (m *mockClubMemberRepo) UpdateRole(_ context.Context, clubID, memberID int64, role entity.MemberRole) error {
-	key := clubMemberKey{clubID, memberID}
-	cm, ok := m.records[key]
-	if !ok {
-		return ErrNotFound
-	}
-	cm.Role = role
-	return nil
-}
-
-func (m *mockClubMemberRepo) Delete(_ context.Context, clubID, memberID int64) error {
-	delete(m.records, clubMemberKey{clubID, memberID})
-	return nil
-}
-
-var _ repository.ClubMemberRepository = (*mockClubMemberRepo)(nil)
-
-// --- tests ---
-
 func TestRegisterOrGet_NewMember(t *testing.T) {
-	memberRepo := newMockMemberRepo()
-	clubMemberRepo := newMockClubMemberRepo()
+	ctrl := go_mock.NewController(t)
+	defer ctrl.Finish()
+
+	memberRepo := mocks.NewMockMemberRepository(ctrl)
+	clubMemberRepo := mocks.NewMockClubMemberRepository(ctrl)
 	uc := usecase.NewMemberUseCase(memberRepo, clubMemberRepo)
 
+	memberRepo.EXPECT().
+		GetByTelegramID(go_mock.Any(), int64(111)).
+		Return(nil, assert.AnError)
+	memberRepo.EXPECT().
+		Create(go_mock.Any(), go_mock.Any()).
+		Return(int64(1), nil)
+
 	member, err := uc.RegisterOrGet(context.Background(), 111, "alice")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if member.ID == 0 {
-		t.Fatal("expected non-zero ID for new member")
-	}
-	if member.TelegramID != 111 {
-		t.Errorf("expected TelegramID 111, got %d", member.TelegramID)
-	}
-	if member.FIO != "alice" {
-		t.Errorf("expected FIO %q, got %q", "alice", member.FIO)
-	}
-	if member.TelegramUsername != "alice" {
-		t.Errorf("expected TelegramUsername %q, got %q", "alice", member.TelegramUsername)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), member.ID)
+	assert.Equal(t, int64(111), member.TelegramID)
+	assert.Equal(t, "alice", member.FIO)
+	assert.Equal(t, "alice", member.TelegramUsername)
 }
 
 func TestRegisterOrGet_ExistingMember(t *testing.T) {
-	memberRepo := newMockMemberRepo()
-	clubMemberRepo := newMockClubMemberRepo()
+	ctrl := go_mock.NewController(t)
+	defer ctrl.Finish()
+
+	memberRepo := mocks.NewMockMemberRepository(ctrl)
+	clubMemberRepo := mocks.NewMockClubMemberRepository(ctrl)
 	uc := usecase.NewMemberUseCase(memberRepo, clubMemberRepo)
 
-	// Register first time
-	first, _ := uc.RegisterOrGet(context.Background(), 222, "bob")
+	existing := &entity.Member{ID: 1, TelegramID: 222, FIO: "bob", TelegramUsername: "bob"}
+	memberRepo.EXPECT().
+		GetByTelegramID(go_mock.Any(), int64(222)).
+		Return(existing, nil)
 
-	// Register again with same TelegramID
 	second, err := uc.RegisterOrGet(context.Background(), 222, "bob_updated")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if second.ID != first.ID {
-		t.Errorf("expected same ID %d, got %d", first.ID, second.ID)
-	}
-	if second.TelegramID != 222 {
-		t.Errorf("expected TelegramID 222, got %d", second.TelegramID)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), second.ID)
+	assert.Equal(t, int64(222), second.TelegramID)
 }
 
 func TestAddToClub(t *testing.T) {
-	memberRepo := newMockMemberRepo()
-	clubMemberRepo := newMockClubMemberRepo()
+	ctrl := go_mock.NewController(t)
+	defer ctrl.Finish()
+
+	memberRepo := mocks.NewMockMemberRepository(ctrl)
+	clubMemberRepo := mocks.NewMockClubMemberRepository(ctrl)
 	uc := usecase.NewMemberUseCase(memberRepo, clubMemberRepo)
 
-	member, _ := uc.RegisterOrGet(context.Background(), 333, "charlie")
+	member := &entity.Member{ID: 1, TelegramID: 333, FIO: "charlie"}
+	memberRepo.EXPECT().
+		GetByID(go_mock.Any(), int64(1)).
+		Return(member, nil)
 
-	err := uc.AddToClub(context.Background(), 10, member.ID, entity.RoleMember)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	clubMemberRepo.EXPECT().
+		Create(go_mock.Any(), go_mock.Any()).
+		Return(int64(1), nil)
 
-	cm, err := uc.GetClubMember(context.Background(), 10, member.ID)
-	if err != nil {
-		t.Fatalf("GetClubMember returned error: %v", err)
-	}
-	if cm.Role != entity.RoleMember {
-		t.Errorf("expected role %q, got %q", entity.RoleMember, cm.Role)
-	}
-	if cm.ClubID != 10 {
-		t.Errorf("expected ClubID 10, got %d", cm.ClubID)
-	}
+	clubMemberRepo.EXPECT().
+		GetByClubAndMember(go_mock.Any(), int64(10), int64(1)).
+		Return(&entity.ClubMember{
+			ID:       1,
+			ClubID:   10,
+			MemberID: 1,
+			Role:     entity.RoleMember,
+		}, nil)
+
+	err := uc.AddToClub(context.Background(), 10, 1, entity.RoleMember)
+	require.NoError(t, err)
+
+	cm, err := uc.GetClubMember(context.Background(), 10, 1)
+	require.NoError(t, err)
+	assert.Equal(t, entity.RoleMember, cm.Role)
+	assert.Equal(t, int64(10), cm.ClubID)
 }
 
 func TestUpdateRole(t *testing.T) {
-	memberRepo := newMockMemberRepo()
-	clubMemberRepo := newMockClubMemberRepo()
+	ctrl := go_mock.NewController(t)
+	defer ctrl.Finish()
+
+	memberRepo := mocks.NewMockMemberRepository(ctrl)
+	clubMemberRepo := mocks.NewMockClubMemberRepository(ctrl)
 	uc := usecase.NewMemberUseCase(memberRepo, clubMemberRepo)
 
-	member, _ := uc.RegisterOrGet(context.Background(), 444, "dave")
-	_ = uc.AddToClub(context.Background(), 20, member.ID, entity.RoleMember)
+	clubMemberRepo.EXPECT().
+		UpdateRole(go_mock.Any(), int64(20), int64(1), entity.RoleTrainer).
+		Return(nil)
 
-	err := uc.UpdateRole(context.Background(), 20, member.ID, entity.RoleTrainer)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	cm, _ := uc.GetClubMember(context.Background(), 20, member.ID)
-	if cm.Role != entity.RoleTrainer {
-		t.Errorf("expected role %q, got %q", entity.RoleTrainer, cm.Role)
-	}
+	err := uc.UpdateRole(context.Background(), 20, 1, entity.RoleTrainer)
+	require.NoError(t, err)
 
 	t.Run("non-existent membership", func(t *testing.T) {
+		clubMemberRepo.EXPECT().
+			UpdateRole(go_mock.Any(), int64(999), int64(999), entity.RoleAdmin).
+			Return(assert.AnError)
+
 		updateErr := uc.UpdateRole(context.Background(), 999, 999, entity.RoleAdmin)
-		if updateErr == nil {
-			t.Fatal("expected error for non-existent membership")
-		}
+		assert.Error(t, updateErr)
 	})
 }
 
-// ErrNotFound is a shared sentinel used by all mock repos in this package.
-var ErrNotFound = errors.New("not found")
+func TestRemoveFromClub(t *testing.T) {
+	ctrl := go_mock.NewController(t)
+	defer ctrl.Finish()
+
+	memberRepo := mocks.NewMockMemberRepository(ctrl)
+	clubMemberRepo := mocks.NewMockClubMemberRepository(ctrl)
+	uc := usecase.NewMemberUseCase(memberRepo, clubMemberRepo)
+
+	clubMemberRepo.EXPECT().
+		Delete(go_mock.Any(), int64(10), int64(1)).
+		Return(nil)
+	clubMemberRepo.EXPECT().
+		ListClubsByMember(go_mock.Any(), int64(1)).
+		Return([]entity.ClubMember{}, nil)
+	memberRepo.EXPECT().
+		GetByID(go_mock.Any(), int64(1)).
+		Return(&entity.Member{ID: 1, FIO: "charlie"}, nil)
+	memberRepo.EXPECT().
+		Update(go_mock.Any(), go_mock.Any()).
+		Return(nil)
+
+	err := uc.RemoveFromClub(context.Background(), 10, 1)
+	require.NoError(t, err)
+}
+
+func TestCreateMember(t *testing.T) {
+	ctrl := go_mock.NewController(t)
+	defer ctrl.Finish()
+
+	memberRepo := mocks.NewMockMemberRepository(ctrl)
+	clubMemberRepo := mocks.NewMockClubMemberRepository(ctrl)
+	uc := usecase.NewMemberUseCase(memberRepo, clubMemberRepo)
+
+	memberRepo.EXPECT().
+		Create(go_mock.Any(), go_mock.Any()).
+		Return(int64(5), nil)
+
+	id, err := uc.CreateMember(context.Background(), &entity.Member{FIO: "Test", TelegramID: 0})
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), id)
+}
+
+func TestDeleteMember(t *testing.T) {
+	ctrl := go_mock.NewController(t)
+	defer ctrl.Finish()
+
+	memberRepo := mocks.NewMockMemberRepository(ctrl)
+	clubMemberRepo := mocks.NewMockClubMemberRepository(ctrl)
+	uc := usecase.NewMemberUseCase(memberRepo, clubMemberRepo)
+
+	memberRepo.EXPECT().
+		Delete(go_mock.Any(), int64(1)).
+		Return(nil)
+
+	err := uc.DeleteMember(context.Background(), 1)
+	require.NoError(t, err)
+}
+
+func TestUpdateProfile(t *testing.T) {
+	ctrl := go_mock.NewController(t)
+	defer ctrl.Finish()
+
+	memberRepo := mocks.NewMockMemberRepository(ctrl)
+	clubMemberRepo := mocks.NewMockClubMemberRepository(ctrl)
+	uc := usecase.NewMemberUseCase(memberRepo, clubMemberRepo)
+
+	birthDate := time.Date(1990, 6, 15, 0, 0, 0, 0, time.UTC)
+	memberRepo.EXPECT().
+		GetByID(go_mock.Any(), int64(1)).
+		Return(&entity.Member{ID: 1, FIO: "old", TelegramUsername: "old"}, nil)
+	memberRepo.EXPECT().
+		Update(go_mock.Any(), go_mock.Any()).
+		Return(nil)
+
+	err := uc.UpdateProfile(context.Background(), 1, "new name", "new_username", &birthDate)
+	require.NoError(t, err)
+}

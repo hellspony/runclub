@@ -10,6 +10,7 @@ RunClub is a running club management platform with:
 ## Build & Run Commands
 
 ```bash
+make generate            # Regenerate mocks via mockgen
 make build              # Build Go binary (requires CGO_ENABLED=1 for sqlite3)
 make lint               # Run golangci-lint
 make test               # Run tests with race detector + coverage
@@ -44,7 +45,8 @@ internal/
   config/            → Configuration (YAML + env vars)
   domain/
     entity/          → Domain models (pure structs, no dependencies)
-    repository/      → Repository interfaces (ports)
+    repository/      → Repository interfaces (ports) + go:generate directives
+  mocks/             → Generated gomock mocks (committed, regenerated via make generate)
   usecase/           → Business logic, depends only on domain interfaces
   delivery/
     http/            → Echo HTTP handlers + middleware
@@ -87,10 +89,18 @@ internal/
 
 ## Testing
 
-- Standard `testing` package — no testify.
-- **Repository tests** (`internal/repository/sqlite/*_test.go`): real SQLite in `t.TempDir()` via `setupTestDB`.
-- **Use case tests** (`internal/usecase/*_test.go`): hand-written mock repos implementing interfaces.
+- **testify** (`assert` + `require`) for assertions, **gomock** (`go.uber.org/mock`) for generated mocks.
+- **Repository tests** (`internal/repository/sqlite/*_test.go`): real SQLite in `t.TempDir()` via `setupTestDB`. No mocks needed.
+- **Use case tests** (`internal/usecase/*_test.go`): generated gomock mocks from `internal/mocks/`. Use `gomock.NewController(t)` + `defer ctrl.Finish()`.
+- **testifylint** is enabled — use `require.Error(t, err)` (not `assert.Error`) when the test must stop on failure.
 - Run with `make test` (enables `-race` flag).
+
+### Mock Generation
+
+- Mocks are generated from repository interfaces via `mockgen` (`make generate`).
+- `go:generate` directives live in `internal/domain/repository/generate.go`.
+- Generated files are committed to `internal/mocks/`.
+- After adding a new repository interface method: run `make generate` to update mocks.
 
 ## Database (SQLite)
 

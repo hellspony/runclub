@@ -4,6 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"runclub/internal/domain/entity"
 	"runclub/internal/repository/sqlite"
 )
@@ -28,36 +31,18 @@ func TestTrainingCreateAndGet(t *testing.T) {
 	}
 
 	id, err := repo.Create(ctx, training)
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if id <= 0 {
-		t.Fatalf("expected positive id, got %d", id)
-	}
+	require.NoError(t, err)
+	assert.Positive(t, id)
 
 	got, err := repo.GetByID(ctx, id)
-	if err != nil {
-		t.Fatalf("GetByID: %v", err)
-	}
+	require.NoError(t, err)
 
-	if got.ClubID != clubID {
-		t.Errorf("ClubID: got %d, want %d", got.ClubID, clubID)
-	}
-	if got.LocationID != locID {
-		t.Errorf("LocationID: got %d, want %d", got.LocationID, locID)
-	}
-	if got.Duration != 60 {
-		t.Errorf("Duration: got %d, want 60", got.Duration)
-	}
-	if got.Status != entity.TrainingStatusPlanned {
-		t.Errorf("Status: got %q, want %q", got.Status, entity.TrainingStatusPlanned)
-	}
-	if got.PhotoFileID != "photo123" {
-		t.Errorf("PhotoFileID: got %q, want %q", got.PhotoFileID, "photo123")
-	}
-	if got.MessageID != 42 {
-		t.Errorf("MessageID: got %d, want 42", got.MessageID)
-	}
+	assert.Equal(t, clubID, got.ClubID)
+	assert.Equal(t, locID, got.LocationID)
+	assert.Equal(t, 60, got.Duration)
+	assert.Equal(t, entity.TrainingStatusPlanned, got.Status)
+	assert.Equal(t, "photo123", got.PhotoFileID)
+	assert.Equal(t, int64(42), got.MessageID)
 }
 
 func TestTrainingListByClub(t *testing.T) {
@@ -83,12 +68,8 @@ func TestTrainingListByClub(t *testing.T) {
 	})
 
 	trainings, err := repo.ListByClub(ctx, clubID)
-	if err != nil {
-		t.Fatalf("ListByClub: %v", err)
-	}
-	if len(trainings) != 2 {
-		t.Fatalf("expected 2 trainings, got %d", len(trainings))
-	}
+	require.NoError(t, err)
+	assert.Len(t, trainings, 2)
 }
 
 func TestTrainingListByStatus(t *testing.T) {
@@ -113,12 +94,8 @@ func TestTrainingListByStatus(t *testing.T) {
 	})
 
 	trainings, err := repo.ListByStatus(ctx, entity.TrainingStatusPlanned)
-	if err != nil {
-		t.Fatalf("ListByStatus: %v", err)
-	}
-	if len(trainings) != 2 {
-		t.Fatalf("expected 2 planned trainings, got %d", len(trainings))
-	}
+	require.NoError(t, err)
+	assert.Len(t, trainings, 2)
 }
 
 func TestTrainingUpdate(t *testing.T) {
@@ -134,28 +111,18 @@ func TestTrainingUpdate(t *testing.T) {
 		Date:   time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC),
 		Status: entity.TrainingStatusPlanned, Duration: 60,
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	require.NoError(t, err)
 
-	if err = repo.Update(ctx, &entity.Training{
+	require.NoError(t, repo.Update(ctx, &entity.Training{
 		ID: id, ClubID: clubID, LocationID: locID,
 		Date:   time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC),
 		Status: entity.TrainingStatusCompleted, Duration: 90,
-	}); err != nil {
-		t.Fatalf("Update: %v", err)
-	}
+	}))
 
 	got, err := repo.GetByID(ctx, id)
-	if err != nil {
-		t.Fatalf("GetByID after update: %v", err)
-	}
-	if got.Status != entity.TrainingStatusCompleted {
-		t.Errorf("Status: got %q, want %q", got.Status, entity.TrainingStatusCompleted)
-	}
-	if got.Duration != 90 {
-		t.Errorf("Duration: got %d, want 90", got.Duration)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, entity.TrainingStatusCompleted, got.Status)
+	assert.Equal(t, 90, got.Duration)
 }
 
 func TestTrainingTrainerCreate(t *testing.T) {
@@ -173,31 +140,19 @@ func TestTrainingTrainerCreate(t *testing.T) {
 		Date:   time.Date(2025, 11, 1, 0, 0, 0, 0, time.UTC),
 		Status: entity.TrainingStatusPlanned,
 	})
-	if err != nil {
-		t.Fatalf("create training: %v", err)
-	}
+	require.NoError(t, err)
 
 	id, err := ttRepo.Create(ctx, &entity.TrainingTrainer{
 		TrainingID: trainingID,
 		MemberID:   memberID,
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if id <= 0 {
-		t.Fatalf("expected positive id, got %d", id)
-	}
+	require.NoError(t, err)
+	assert.Positive(t, id)
 
 	trainers, err := ttRepo.ListByTraining(ctx, trainingID)
-	if err != nil {
-		t.Fatalf("ListByTraining: %v", err)
-	}
-	if len(trainers) != 1 {
-		t.Fatalf("expected 1 trainer, got %d", len(trainers))
-	}
-	if trainers[0].MemberID != memberID {
-		t.Errorf("MemberID: got %d, want %d", trainers[0].MemberID, memberID)
-	}
+	require.NoError(t, err)
+	require.Len(t, trainers, 1)
+	assert.Equal(t, memberID, trainers[0].MemberID)
 }
 
 func TestTrainingParticipantCreateAndDelete(t *testing.T) {
@@ -215,38 +170,22 @@ func TestTrainingParticipantCreateAndDelete(t *testing.T) {
 		Date:   time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
 		Status: entity.TrainingStatusPlanned,
 	})
-	if err != nil {
-		t.Fatalf("create training: %v", err)
-	}
+	require.NoError(t, err)
 
 	id, err := tpRepo.Create(ctx, &entity.TrainingParticipant{
 		TrainingID: trainingID,
 		MemberID:   memberID,
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if id <= 0 {
-		t.Fatalf("expected positive id, got %d", id)
-	}
+	require.NoError(t, err)
+	assert.Positive(t, id)
 
 	got, err := tpRepo.GetByTrainingAndMember(ctx, trainingID, memberID)
-	if err != nil {
-		t.Fatalf("GetByTrainingAndMember: %v", err)
-	}
-	if got.TrainingID != trainingID {
-		t.Errorf("TrainingID: got %d, want %d", got.TrainingID, trainingID)
-	}
-	if got.MemberID != memberID {
-		t.Errorf("MemberID: got %d, want %d", got.MemberID, memberID)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, trainingID, got.TrainingID)
+	assert.Equal(t, memberID, got.MemberID)
 
-	if err = tpRepo.Delete(ctx, id); err != nil {
-		t.Fatalf("Delete: %v", err)
-	}
+	require.NoError(t, tpRepo.Delete(ctx, id))
 
 	_, err = tpRepo.GetByTrainingAndMember(ctx, trainingID, memberID)
-	if err == nil {
-		t.Error("expected error after delete, got nil")
-	}
+	assert.Error(t, err)
 }

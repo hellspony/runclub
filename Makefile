@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean docker-build
+.PHONY: build run test lint clean docker-build generate
 
 APP_NAME := runclub
 BUILD_DIR := ./bin
@@ -46,6 +46,10 @@ frontend-build:
 # Run frontend dev server
 frontend-dev:
 	cd web/admin && npm run dev
+
+# Generate mocks
+generate:
+	go generate ./internal/domain/repository/...
 
 # Generate Go dependencies
 deps:

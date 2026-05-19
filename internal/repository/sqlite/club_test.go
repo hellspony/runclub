@@ -3,6 +3,9 @@ package sqlite_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"runclub/internal/domain/entity"
 	"runclub/internal/repository/sqlite"
 )
@@ -21,36 +24,18 @@ func TestClubCreateAndGet(t *testing.T) {
 	}
 
 	id, err := repo.Create(ctx, club)
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if id <= 0 {
-		t.Fatalf("expected positive id, got %d", id)
-	}
+	require.NoError(t, err)
+	assert.Positive(t, id)
 
 	got, err := repo.GetByID(ctx, id)
-	if err != nil {
-		t.Fatalf("GetByID: %v", err)
-	}
+	require.NoError(t, err)
 
-	if got.Name != club.Name {
-		t.Errorf("Name: got %q, want %q", got.Name, club.Name)
-	}
-	if got.TelegramChatID != club.TelegramChatID {
-		t.Errorf("TelegramChatID: got %d, want %d", got.TelegramChatID, club.TelegramChatID)
-	}
-	if got.WelcomeEnabled != club.WelcomeEnabled {
-		t.Errorf("WelcomeEnabled: got %v, want %v", got.WelcomeEnabled, club.WelcomeEnabled)
-	}
-	if got.BirthdayEnabled != club.BirthdayEnabled {
-		t.Errorf("BirthdayEnabled: got %v, want %v", got.BirthdayEnabled, club.BirthdayEnabled)
-	}
-	if got.RaceNotifyEnabled != club.RaceNotifyEnabled {
-		t.Errorf("RaceNotifyEnabled: got %v, want %v", got.RaceNotifyEnabled, club.RaceNotifyEnabled)
-	}
-	if got.ID != id {
-		t.Errorf("ID: got %d, want %d", got.ID, id)
-	}
+	assert.Equal(t, club.Name, got.Name)
+	assert.Equal(t, club.TelegramChatID, got.TelegramChatID)
+	assert.Equal(t, club.WelcomeEnabled, got.WelcomeEnabled)
+	assert.Equal(t, club.BirthdayEnabled, got.BirthdayEnabled)
+	assert.Equal(t, club.RaceNotifyEnabled, got.RaceNotifyEnabled)
+	assert.Equal(t, id, got.ID)
 }
 
 func TestClubGetByTelegramChatID(t *testing.T) {
@@ -63,20 +48,12 @@ func TestClubGetByTelegramChatID(t *testing.T) {
 		Name:           "FindMe",
 		TelegramChatID: chatID,
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	require.NoError(t, err)
 
 	got, err := repo.GetByTelegramChatID(ctx, chatID)
-	if err != nil {
-		t.Fatalf("GetByTelegramChatID: %v", err)
-	}
-	if got.ID != id {
-		t.Errorf("ID: got %d, want %d", got.ID, id)
-	}
-	if got.Name != "FindMe" {
-		t.Errorf("Name: got %q, want %q", got.Name, "FindMe")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, id, got.ID)
+	assert.Equal(t, "FindMe", got.Name)
 }
 
 func TestClubList(t *testing.T) {
@@ -89,23 +66,15 @@ func TestClubList(t *testing.T) {
 			Name:           name,
 			TelegramChatID: int64(-100 + i),
 		})
-		if err != nil {
-			t.Fatalf("Create %s: %v", name, err)
-		}
+		require.NoError(t, err, "Create %s", name)
 	}
 
 	clubs, err := repo.List(ctx)
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(clubs) != 3 {
-		t.Fatalf("expected 3 clubs, got %d", len(clubs))
-	}
-	// List returns ORDER BY id, so order should match insertion order
-	if clubs[0].Name != "Alpha" || clubs[1].Name != "Beta" || clubs[2].Name != "Gamma" {
-		t.Errorf("order: got %q, %q, %q; want Alpha, Beta, Gamma",
-			clubs[0].Name, clubs[1].Name, clubs[2].Name)
-	}
+	require.NoError(t, err)
+	require.Len(t, clubs, 3)
+	assert.Equal(t, "Alpha", clubs[0].Name)
+	assert.Equal(t, "Beta", clubs[1].Name)
+	assert.Equal(t, "Gamma", clubs[2].Name)
 }
 
 func TestClubUpdate(t *testing.T) {
@@ -120,9 +89,7 @@ func TestClubUpdate(t *testing.T) {
 		BirthdayEnabled:   true,
 		RaceNotifyEnabled: true,
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	require.NoError(t, err)
 
 	updated := &entity.Club{
 		ID:                id,
@@ -132,26 +99,14 @@ func TestClubUpdate(t *testing.T) {
 		BirthdayEnabled:   false,
 		RaceNotifyEnabled: false,
 	}
-	if err = repo.Update(ctx, updated); err != nil {
-		t.Fatalf("Update: %v", err)
-	}
+	require.NoError(t, repo.Update(ctx, updated))
 
 	got, err := repo.GetByID(ctx, id)
-	if err != nil {
-		t.Fatalf("GetByID after update: %v", err)
-	}
-	if got.Name != "Updated" {
-		t.Errorf("Name: got %q, want %q", got.Name, "Updated")
-	}
-	if got.WelcomeEnabled != false {
-		t.Errorf("WelcomeEnabled: got %v, want false", got.WelcomeEnabled)
-	}
-	if got.BirthdayEnabled != false {
-		t.Errorf("BirthdayEnabled: got %v, want false", got.BirthdayEnabled)
-	}
-	if got.RaceNotifyEnabled != false {
-		t.Errorf("RaceNotifyEnabled: got %v, want false", got.RaceNotifyEnabled)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "Updated", got.Name)
+	assert.False(t, got.WelcomeEnabled)
+	assert.False(t, got.BirthdayEnabled)
+	assert.False(t, got.RaceNotifyEnabled)
 }
 
 func TestClubDelete(t *testing.T) {
@@ -163,16 +118,10 @@ func TestClubDelete(t *testing.T) {
 		Name:           "ToDelete",
 		TelegramChatID: -100333,
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	require.NoError(t, err)
 
-	if err = repo.Delete(ctx, id); err != nil {
-		t.Fatalf("Delete: %v", err)
-	}
+	require.NoError(t, repo.Delete(ctx, id))
 
 	_, err = repo.GetByID(ctx, id)
-	if err == nil {
-		t.Error("expected error after delete, got nil")
-	}
+	assert.Error(t, err)
 }

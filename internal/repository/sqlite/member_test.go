@@ -4,6 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"runclub/internal/domain/entity"
 	"runclub/internal/repository/sqlite"
 )
@@ -22,32 +25,17 @@ func TestMemberCreateAndGet(t *testing.T) {
 	}
 
 	id, err := repo.Create(ctx, member)
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if id <= 0 {
-		t.Fatalf("expected positive id, got %d", id)
-	}
+	require.NoError(t, err)
+	assert.Positive(t, id)
 
 	got, err := repo.GetByID(ctx, id)
-	if err != nil {
-		t.Fatalf("GetByID: %v", err)
-	}
+	require.NoError(t, err)
 
-	if got.FIO != member.FIO {
-		t.Errorf("FIO: got %q, want %q", got.FIO, member.FIO)
-	}
-	if got.TelegramUsername != member.TelegramUsername {
-		t.Errorf("TelegramUsername: got %q, want %q", got.TelegramUsername, member.TelegramUsername)
-	}
-	if got.TelegramID != member.TelegramID {
-		t.Errorf("TelegramID: got %d, want %d", got.TelegramID, member.TelegramID)
-	}
-	if got.BirthDate == nil {
-		t.Error("BirthDate: got nil, want non-nil")
-	} else if !got.BirthDate.Equal(bday) {
-		t.Errorf("BirthDate: got %v, want %v", got.BirthDate, bday)
-	}
+	assert.Equal(t, member.FIO, got.FIO)
+	assert.Equal(t, member.TelegramUsername, got.TelegramUsername)
+	assert.Equal(t, member.TelegramID, got.TelegramID)
+	require.NotNil(t, got.BirthDate)
+	assert.True(t, got.BirthDate.Equal(bday))
 }
 
 func TestMemberGetByTelegramID(t *testing.T) {
@@ -60,17 +48,11 @@ func TestMemberGetByTelegramID(t *testing.T) {
 		FIO:        "Telegram User",
 		TelegramID: tgID,
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	require.NoError(t, err)
 
 	got, err := repo.GetByTelegramID(ctx, tgID)
-	if err != nil {
-		t.Fatalf("GetByTelegramID: %v", err)
-	}
-	if got.ID != id {
-		t.Errorf("ID: got %d, want %d", got.ID, id)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, id, got.ID)
 }
 
 func TestMemberListByClub(t *testing.T) {
@@ -89,16 +71,11 @@ func TestMemberListByClub(t *testing.T) {
 	cmRepo.Create(ctx, &entity.ClubMember{ClubID: clubID, MemberID: m2, Role: entity.RoleMember})
 
 	members, err := memberRepo.ListByClub(ctx, clubID)
-	if err != nil {
-		t.Fatalf("ListByClub: %v", err)
-	}
-	if len(members) != 2 {
-		t.Fatalf("expected 2 members, got %d", len(members))
-	}
+	require.NoError(t, err)
+	require.Len(t, members, 2)
 	names := map[string]bool{members[0].FIO: true, members[1].FIO: true}
-	if !names["Alice"] || !names["Bob"] {
-		t.Errorf("expected Alice and Bob, got %q and %q", members[0].FIO, members[1].FIO)
-	}
+	assert.True(t, names["Alice"])
+	assert.True(t, names["Bob"])
 }
 
 func TestMemberListTrainersByClub(t *testing.T) {
@@ -116,15 +93,9 @@ func TestMemberListTrainersByClub(t *testing.T) {
 	cmRepo.Create(ctx, &entity.ClubMember{ClubID: clubID, MemberID: memberID, Role: entity.RoleMember})
 
 	trainers, err := memberRepo.ListTrainersByClub(ctx, clubID)
-	if err != nil {
-		t.Fatalf("ListTrainersByClub: %v", err)
-	}
-	if len(trainers) != 1 {
-		t.Fatalf("expected 1 trainer, got %d", len(trainers))
-	}
-	if trainers[0].FIO != "Coach" {
-		t.Errorf("FIO: got %q, want %q", trainers[0].FIO, "Coach")
-	}
+	require.NoError(t, err)
+	require.Len(t, trainers, 1)
+	assert.Equal(t, "Coach", trainers[0].FIO)
 }
 
 func TestMemberListBirthdayOn(t *testing.T) {
@@ -145,15 +116,9 @@ func TestMemberListBirthdayOn(t *testing.T) {
 	})
 
 	members, err := repo.ListBirthdayOn(ctx, 3, 25)
-	if err != nil {
-		t.Fatalf("ListBirthdayOn: %v", err)
-	}
-	if len(members) != 1 {
-		t.Fatalf("expected 1 member, got %d", len(members))
-	}
-	if members[0].FIO != "Birthday Person" {
-		t.Errorf("FIO: got %q, want %q", members[0].FIO, "Birthday Person")
-	}
+	require.NoError(t, err)
+	require.Len(t, members, 1)
+	assert.Equal(t, "Birthday Person", members[0].FIO)
 }
 
 func TestClubMemberCreate(t *testing.T) {
@@ -169,20 +134,12 @@ func TestClubMemberCreate(t *testing.T) {
 		MemberID: memberID,
 		Role:     entity.RoleMember,
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if id <= 0 {
-		t.Fatalf("expected positive id, got %d", id)
-	}
+	require.NoError(t, err)
+	assert.Positive(t, id)
 
 	got, err := repo.GetByClubAndMember(ctx, clubID, memberID)
-	if err != nil {
-		t.Fatalf("GetByClubAndMember: %v", err)
-	}
-	if got.Role != entity.RoleMember {
-		t.Errorf("Role: got %q, want %q", got.Role, entity.RoleMember)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, entity.RoleMember, got.Role)
 }
 
 func TestClubMemberListClubsByMember(t *testing.T) {
@@ -198,12 +155,8 @@ func TestClubMemberListClubsByMember(t *testing.T) {
 	repo.Create(ctx, &entity.ClubMember{ClubID: c2, MemberID: mID, Role: entity.RoleTrainer})
 
 	cms, err := repo.ListClubsByMember(ctx, mID)
-	if err != nil {
-		t.Fatalf("ListClubsByMember: %v", err)
-	}
-	if len(cms) != 2 {
-		t.Fatalf("expected 2 club memberships, got %d", len(cms))
-	}
+	require.NoError(t, err)
+	assert.Len(t, cms, 2)
 }
 
 func TestClubMemberUpdateRole(t *testing.T) {
@@ -220,15 +173,9 @@ func TestClubMemberUpdateRole(t *testing.T) {
 		Role:     entity.RoleMember,
 	})
 
-	if err := repo.UpdateRole(ctx, clubID, memberID, entity.RoleTrainer); err != nil {
-		t.Fatalf("UpdateRole: %v", err)
-	}
+	require.NoError(t, repo.UpdateRole(ctx, clubID, memberID, entity.RoleTrainer))
 
 	got, err := repo.GetByClubAndMember(ctx, clubID, memberID)
-	if err != nil {
-		t.Fatalf("GetByClubAndMember: %v", err)
-	}
-	if got.Role != entity.RoleTrainer {
-		t.Errorf("Role: got %q, want %q", got.Role, entity.RoleTrainer)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, entity.RoleTrainer, got.Role)
 }

@@ -3,6 +3,9 @@ package sqlite_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"runclub/internal/domain/entity"
 	"runclub/internal/repository/sqlite"
 )
@@ -23,33 +26,17 @@ func TestLocationCreateAndGet(t *testing.T) {
 	}
 
 	id, err := repo.Create(ctx, location)
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if id <= 0 {
-		t.Fatalf("expected positive id, got %d", id)
-	}
+	require.NoError(t, err)
+	assert.Positive(t, id)
 
 	got, err := repo.GetByID(ctx, id)
-	if err != nil {
-		t.Fatalf("GetByID: %v", err)
-	}
+	require.NoError(t, err)
 
-	if got.ClubID != clubID {
-		t.Errorf("ClubID: got %d, want %d", got.ClubID, clubID)
-	}
-	if got.Name != location.Name {
-		t.Errorf("Name: got %q, want %q", got.Name, location.Name)
-	}
-	if got.Address != location.Address {
-		t.Errorf("Address: got %q, want %q", got.Address, location.Address)
-	}
-	if got.MapURL != location.MapURL {
-		t.Errorf("MapURL: got %q, want %q", got.MapURL, location.MapURL)
-	}
-	if got.Description != location.Description {
-		t.Errorf("Description: got %q, want %q", got.Description, location.Description)
-	}
+	assert.Equal(t, clubID, got.ClubID)
+	assert.Equal(t, location.Name, got.Name)
+	assert.Equal(t, location.Address, got.Address)
+	assert.Equal(t, location.MapURL, got.MapURL)
+	assert.Equal(t, location.Description, got.Description)
 }
 
 func TestLocationListByClub(t *testing.T) {
@@ -65,17 +52,8 @@ func TestLocationListByClub(t *testing.T) {
 	repo.Create(ctx, &entity.Location{ClubID: otherClubID, Name: "Downtown"})
 
 	locations, err := repo.ListByClub(ctx, clubID)
-	if err != nil {
-		t.Fatalf("ListByClub: %v", err)
-	}
-	if len(locations) != 2 {
-		t.Fatalf("expected 2 locations, got %d", len(locations))
-	}
-	// Ordered by name
-	if locations[0].Name != "Beach Run" {
-		t.Errorf("first location: got %q, want %q", locations[0].Name, "Beach Run")
-	}
-	if locations[1].Name != "Hill Climb" {
-		t.Errorf("second location: got %q, want %q", locations[1].Name, "Hill Climb")
-	}
+	require.NoError(t, err)
+	require.Len(t, locations, 2)
+	assert.Equal(t, "Beach Run", locations[0].Name)
+	assert.Equal(t, "Hill Climb", locations[1].Name)
 }

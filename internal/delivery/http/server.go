@@ -67,12 +67,12 @@ func NewServer(
 func (s *Server) registerMiddleware() {
 	s.echo.Use(middleware.Recover())
 	s.echo.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogStatus:    true,
-		LogMethod:    true,
-		LogURI:       true,
-		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+		LogValuesFunc: func(_ echo.Context, _ middleware.RequestLoggerValues) error {
 			return nil
 		},
+		LogStatus: true,
+		LogMethod: true,
+		LogURI:    true,
 	}))
 	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
