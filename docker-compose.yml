@@ -1,0 +1,22 @@
+services:
+  runclub:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASS=${ADMIN_PASS:-changeme}
+      - ADMIN_ROLE=${ADMIN_ROLE:-superadmin}
+      - JWT_SECRET=${JWT_SECRET:-secret}
+      - DB_PATH=/data/runclub.db
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - INIT_CLUB_NAME=${INIT_CLUB_NAME:-RunClub}
+      - INIT_CLUB_CHAT_ID=${INIT_CLUB_CHAT_ID:-0}
+      - INIT_ADMIN_TELEGRAM_ID=${INIT_ADMIN_TELEGRAM_ID:-0}
+      - INIT_ADMIN_USERNAME=${INIT_ADMIN_USERNAME:-admin}
+    volumes:
+      - runclub-data:/data
+
+volumes:
+  runclub-data:

@@ -1,0 +1,19 @@
+http_port: 8080
+static_dir: ./web/admin/dist
+db_path: ./data/runclub.db
+telegram_token: ""
+webhook_url: ""
+admin_user: admin
+admin_pass: changeme
+admin_role: superadmin
+jwt_secret: secret
+birthday_cron: "0 0 8 * * *"
+race_notify_cron: "0 0 10 * * 4"
+training_confirm_cron: "0 */5 * * * *"
+member_cleanup_cron: "0 0 3 * * *"
+member_cleanup_days: 50
+log_level: info
+init_club_name: ""
+init_club_chat_id: 0
+init_admin_telegram_id: 0
+init_admin_username: ""
