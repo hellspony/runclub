@@ -13,13 +13,14 @@ RunClub is a running club management platform with:
 make generate            # Regenerate mocks via mockgen
 make build              # Build Go binary (requires CGO_ENABLED=1 for sqlite3)
 make lint               # Run golangci-lint
+make arch-lint          # Run go-arch-lint (architecture dependency checks)
 make test               # Run tests with race detector + coverage
 make frontend-build     # Install deps & build frontend
 make docker-up          # Build & start container
 make docker-down        # Stop container
 ```
 
-After code changes, always run `make lint && make test`. After frontend changes, run `cd web/admin && npm run build`.
+After code changes, always run `make lint && make arch-lint && make test`. After frontend changes, run `cd web/admin && npm run build`.
 
 ## Architecture
 

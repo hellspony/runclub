@@ -1,0 +1,127 @@
+version: 3
+workdir: internal
+
+allow:
+  depOnAnyVendor: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+
+components:
+  domain-entity:     { in: domain/entity }
+  domain-repository: { in: domain/repository }
+  usecase:           { in: usecase }
+  delivery-http:     { in: delivery/http }
+  delivery-tg-bot:   { in: delivery/telegram }
+  delivery-tg-handlers: { in: delivery/telegram/handlers }
+  delivery-tg-tgutil: { in: delivery/telegram/tgutil }
+  repository-sqlite: { in: repository/sqlite }
+  config:            { in: config }
+  scheduler:         { in: scheduler }
+  mocks:             { in: mocks }
+  pkg-templater:     { in: pkg/templater }
+  pkg-tgrescape:     { in: pkg/tgrescape }
+
+vendors:
+  echo:         { in: github.com/labstack/echo/** }
+  jwt:          { in: github.com/golang-jwt/** }
+  sqlx:         { in: github.com/jmoiron/sqlx }
+  sqlite3:      { in: github.com/mattn/go-sqlite3 }
+  telegram-bot: { in: github.com/go-telegram-bot-api/** }
+  cron:         { in: github.com/robfig/cron/** }
+  zap:          { in: [ go.uber.org/zap, go.uber.org/zap/** ] }
+  gomock:       { in: go.uber.org/mock/** }
+  testify:      { in: github.com/stretchr/** }
+  bcrypt:       { in: golang.org/x/crypto/** }
+  env:          { in: github.com/caarlos0/env/** }
+  yaml:         { in: gopkg.in/yaml.v3 }
+
+commonComponents:
+  - domain-entity
+  - pkg-templater
+  - pkg-tgrescape
+
+commonVendors:
+  - echo
+  - zap
+
+deps:
+  domain-entity:
+    canUse:
+      - yaml
+
+  domain-repository:
+    mayDependOn:
+      - domain-entity
+
+  usecase:
+    mayDependOn:
+      - domain-entity
+      - domain-repository
+    canUse:
+      - jwt
+      - bcrypt
+
+  delivery-http:
+    mayDependOn:
+      - domain-entity
+      - usecase
+      - config
+    canUse:
+      - jwt
+
+  delivery-tg-bot:
+    mayDependOn:
+      - domain-entity
+      - domain-repository
+      - usecase
+      - delivery-tg-handlers
+      - delivery-tg-tgutil
+    canUse:
+      - telegram-bot
+
+  delivery-tg-handlers:
+    mayDependOn:
+      - domain-entity
+      - domain-repository
+      - usecase
+      - delivery-tg-tgutil
+    canUse:
+      - telegram-bot
+
+  delivery-tg-tgutil:
+    canUse:
+      - telegram-bot
+
+  repository-sqlite:
+    mayDependOn:
+      - domain-entity
+      - domain-repository
+    canUse:
+      - sqlx
+      - sqlite3
+
+  config:
+    canUse:
+      - env
+      - yaml
+
+  scheduler:
+    mayDependOn:
+      - usecase
+      - config
+    canUse:
+      - cron
+
+  mocks:
+    mayDependOn:
+      - domain-entity
+      - domain-repository
+    canUse:
+      - gomock
+
+  pkg-templater:
+    anyVendorDeps: true
+
+  pkg-tgrescape:
+    anyVendorDeps: true

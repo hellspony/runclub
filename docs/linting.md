@@ -1,6 +1,21 @@
 # Linter Rules
 
-The project uses a strict `.golangci.yml` with 60+ linters.
+The project uses a strict `.golangci.yml` with 60+ linters and `go-arch-lint` for architecture checks.
+
+## Commands
+
+- `make lint` — run golangci-lint
+- `make arch-lint` — run go-arch-lint (architecture dependency rules)
+
+## Architecture Linter (go-arch-lint)
+
+Config: `.go-arch-lint.yml`. Enforces clean architecture dependency direction:
+
+```
+delivery → usecase → domain ← repository/sqlite
+```
+
+After adding a new import between packages, run `make arch-lint`. If it fails, either the import violates the architecture (refactor) or the config needs updating (add to `mayDependOn`/`canUse`).
 
 ## General Principles
 

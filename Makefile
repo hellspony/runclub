@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean docker-build generate
+.PHONY: build run test lint arch-lint clean docker-build generate
 
 APP_NAME := runclub
 BUILD_DIR := ./bin
@@ -18,6 +18,10 @@ test:
 # Run linter
 lint:
 	golangci-lint run ./...
+
+# Run architecture linter
+arch-lint:
+	go-arch-lint check
 
 # Show test coverage
 coverage: test
